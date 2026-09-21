@@ -6,8 +6,9 @@ A 2.5D explorable living world built around the existing **HAKAI PROTOCOL** univ
 its creatures, bosses, and dark-fantasy visual identity — reused as real world entities
 instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk into it.
 
-**Play:** open `index.html` on any static server (or GitHub Pages once deployed). No build
-step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
+**Play live:** [jeevan-0508.github.io/hakai_world](https://jeevan-0508.github.io/hakai_world/)
+
+No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
 ## What this is (Phase 1 of an 8-phase build)
 
