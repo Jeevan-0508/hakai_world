@@ -10,7 +10,7 @@ instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk 
 
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 4 of an 8-phase build)
+## What this is (Phase 5 of an 8-phase build)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -66,6 +66,12 @@ Added in Phase 4:
   energy rises, state exits cleanly) since the emergent trigger is probabilistic and
   distance-gated by design, not guaranteed in any short random window
 
+Added in Phase 5:
+- Touch controls on any touch-capable viewport (feature-detected, no separate mobile
+  build): left-side virtual joystick for movement, drag-anywhere-on-the-right to look,
+  a tap-to-observe button. Reuses the existing keyboard-boolean movement path and the
+  existing mouse-delta look accumulator untouched — camera.js needed zero changes
+
 ## Architecture
 
 Strict simulation/render separation (spec section 26):
@@ -83,10 +89,15 @@ src/main.js   the only place that ticks sim then renders
 `WASD` move · `Shift` sprint · mouse look (click to lock pointer) · `E` observe ·
 `P` photo mode · `F3` debug · `M` mute
 
-## Not built yet (phases 5–8 of the original spec)
+## Not built yet, and a deliberate call not to (phases 6–8 of the original spec)
 
-Web Worker simulation offload, instancing stress-tested past ~40 entities, WebGPU path,
-mobile controls. Tracked so the next session picks up cleanly instead of re-auditing.
+The remaining spec items — Web Worker simulation offload, GPU instancing, a WebGPU render
+path — solve a scale problem this project doesn't have. At 30-80 sprite billboards, a
+modern GPU/CPU doesn't notice. Building them now would be optimizing for a load the scene
+never reaches, and none of the three are safely verifiable without a stable full-screen
+browser session (this one wasn't, most sessions building this were). If the entity count
+grows an order of magnitude, revisit instancing first — it's the one with real payoff at
+that point. Until then this is feature-complete for a portfolio piece.
 
 ## Source assets
 

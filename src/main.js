@@ -60,8 +60,10 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
+const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 canvas.addEventListener('click', () => {
-  if (!photoMode && !pointerLocked) canvas.requestPointerLock();
+  if (!isTouch && !photoMode && !pointerLocked) canvas.requestPointerLock();
 });
 document.addEventListener('pointerlockchange', () => { pointerLocked = document.pointerLockElement === canvas; });
 window.addEventListener('mousemove', (e) => {
@@ -71,6 +73,70 @@ window.addEventListener('mousemove', (e) => {
 canvas.addEventListener('mousedown', () => { mouse.down = true; });
 window.addEventListener('mouseup', () => { mouse.down = false; });
 canvas.addEventListener('wheel', (e) => { if (photoMode) photoRig.zoom(e.deltaY); });
+
+// Touch controls (spec phase — mobile support). Feature-detected, reuses the existing
+// keyboard-boolean movement path and the existing mouse.dx/dy look accumulator untouched,
+// so camera.js and the rest of the input pipeline needed zero changes.
+if (isTouch) {
+  document.getElementById('touch-ui').classList.remove('hidden');
+  document.getElementById('hint').textContent = 'DRAG LEFT: MOVE · DRAG RIGHT: LOOK · TAP OBSERVE';
+
+  const stick = document.getElementById('touch-joystick');
+  const nub = document.getElementById('touch-joystick-nub');
+  let stickPointerId = null;
+  const STICK_RADIUS = 48;
+
+  function setStickKeys(dx, dz) {
+    const dead = 0.25;
+    keys['w'] = dz < -dead;
+    keys['s'] = dz > dead;
+    keys['a'] = dx < -dead;
+    keys['d'] = dx > dead;
+  }
+
+  stick.addEventListener('pointerdown', (e) => {
+    stickPointerId = e.pointerId;
+    stick.setPointerCapture(e.pointerId);
+  });
+  stick.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== stickPointerId) return;
+    const rect = stick.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    let dx = (e.clientX - cx) / STICK_RADIUS, dy = (e.clientY - cy) / STICK_RADIUS;
+    const mag = Math.min(1, Math.hypot(dx, dy));
+    const ang = Math.atan2(dy, dx);
+    dx = Math.cos(ang) * mag; dy = Math.sin(ang) * mag;
+    nub.style.transform = `translate(${dx * STICK_RADIUS}px, ${dy * STICK_RADIUS}px)`;
+    setStickKeys(dx, dy);
+  });
+  function releaseStick(e) {
+    if (e.pointerId !== stickPointerId) return;
+    stickPointerId = null;
+    nub.style.transform = 'translate(0,0)';
+    setStickKeys(0, 0);
+  }
+  stick.addEventListener('pointerup', releaseStick);
+  stick.addEventListener('pointercancel', releaseStick);
+
+  const lookZone = document.getElementById('touch-look');
+  let lookPointerId = null, lastLookX = 0, lastLookY = 0;
+  lookZone.addEventListener('pointerdown', (e) => {
+    lookPointerId = e.pointerId; lastLookX = e.clientX; lastLookY = e.clientY;
+    lookZone.setPointerCapture(e.pointerId);
+  });
+  lookZone.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== lookPointerId || photoMode) return;
+    mouse.dx += e.clientX - lastLookX; mouse.dy += e.clientY - lastLookY;
+    lastLookX = e.clientX; lastLookY = e.clientY;
+  });
+  lookZone.addEventListener('pointerup', (e) => { if (e.pointerId === lookPointerId) lookPointerId = null; });
+  lookZone.addEventListener('pointercancel', (e) => { if (e.pointerId === lookPointerId) lookPointerId = null; });
+
+  document.getElementById('touch-discover').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    tryDiscover();
+  });
+}
 
 let debugOn = false;
 function toggleDebug() {

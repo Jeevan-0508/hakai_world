@@ -70,3 +70,27 @@ canvas#scene { position: fixed; inset: 0; display: block; }
   position: fixed; top: 22px; right: 26px; z-index: 30; font-family: monospace; font-size: 11px;
   color: #7fffb0; background: rgba(0,0,0,0.5); padding: 8px 10px; line-height: 1.5; white-space: pre;
 }
+
+/* Touch controls — shown only on touch-capable viewports (main.js feature-detects). */
+#touch-ui { position: fixed; inset: 0; z-index: 40; }
+#touch-look {
+  position: absolute; inset: 0; right: 0; left: 40%; top: 0; bottom: 0;
+  pointer-events: auto; touch-action: none;
+}
+#touch-joystick {
+  position: absolute; left: 26px; bottom: 26px; width: 96px; height: 96px;
+  border-radius: 50%; background: rgba(20,8,4,0.45); border: 1px solid rgba(255,150,60,.35);
+  pointer-events: auto; touch-action: none;
+}
+#touch-joystick-nub {
+  position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px;
+  border-radius: 50%; background: rgba(255,150,60,.4); border: 1px solid rgba(255,180,120,.6);
+  transition: transform 0.05s linear;
+}
+#touch-discover {
+  position: absolute; right: 26px; bottom: 26px; width: 76px; height: 76px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  background: rgba(20,8,4,0.55); border: 1px solid rgba(255,150,60,.4);
+  font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px; color: #ffd9a8;
+  pointer-events: auto; touch-action: none;
+}
