@@ -19,10 +19,34 @@ import { writeSave } from './save.js';
 import { WorldAudio } from './audio/audio.js';
 
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true }); // preserveDrawingBuffer: photo-mode capture (section 22) reads this canvas directly
+
+// Phase 8: use WebGPU if the browser has it, otherwise the WebGL path this project
+// shipped with from day one. Feature-detected and optional, not a forced replacement --
+// if navigator.gpu exists but init() fails for any reason (driver quirk, unsupported
+// feature), fall straight back to WebGL rather than leave the page broken. Everything
+// downstream (scene, camera, materials, geometries) keeps importing the plain 'three'
+// namespace as before; only this renderer's own construction reaches into 'three/webgpu',
+// which is the documented usage pattern for mixing the two.
+let renderer = null;
+if (navigator.gpu) {
+  try {
+    const { WebGPURenderer } = await import('three/webgpu');
+    const gpuRenderer = new WebGPURenderer({ canvas, antialias: true });
+    await gpuRenderer.init();
+    renderer = gpuRenderer;
+    console.log('HAKAI // WORLD: running on WebGPU');
+  } catch (err) {
+    console.error('WebGPU present but failed to initialize, falling back to WebGL:', err);
+    renderer = null;
+  }
+}
+if (!renderer) {
+  // preserveDrawingBuffer: photo-mode capture (section 22) reads this canvas directly
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+}
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = false; // billboards + procedural structure only — shadow maps are not worth the cost here
+if (renderer.shadowMap) renderer.shadowMap.enabled = false; // billboards + procedural structure only — shadow maps are not worth the cost here
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x0a0508, 0.006);
