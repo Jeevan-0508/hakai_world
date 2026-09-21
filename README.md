@@ -10,7 +10,7 @@ instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk 
 
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 5 of an 8-phase build)
+## What this is (Phase 6 of an 8-phase build)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -72,6 +72,15 @@ Added in Phase 5:
   a tap-to-observe button. Reuses the existing keyboard-boolean movement path and the
   existing mouse-delta look accumulator untouched — camera.js needed zero changes
 
+Added in Phase 6:
+- Simulation moved to a Web Worker (src/sim/worker.js). Creatures, boss, resources,
+  carcasses, day/night, weather, events and population all tick off the main thread now;
+  the render loop only applies a plain-object snapshot each tick instead of stepping the
+  sim itself. Player position/yaw stays authoritative on the main thread (sent to the
+  worker every frame) so camera look and movement stay tied to render framerate, not sim
+  tick rate. Falls back to the old synchronous in-thread tick automatically if `Worker`
+  construction fails for any reason
+
 ## Architecture
 
 Strict simulation/render separation (spec section 26):
@@ -89,15 +98,13 @@ src/main.js   the only place that ticks sim then renders
 `WASD` move · `Shift` sprint · mouse look (click to lock pointer) · `E` observe ·
 `P` photo mode · `F3` debug · `M` mute
 
-## Not built yet, and a deliberate call not to (phases 6–8 of the original spec)
+## Not built yet (phases 7-8 of the original spec)
 
-The remaining spec items — Web Worker simulation offload, GPU instancing, a WebGPU render
-path — solve a scale problem this project doesn't have. At 30-80 sprite billboards, a
-modern GPU/CPU doesn't notice. Building them now would be optimizing for a load the scene
-never reaches, and none of the three are safely verifiable without a stable full-screen
-browser session (this one wasn't, most sessions building this were). If the entity count
-grows an order of magnitude, revisit instancing first — it's the one with real payoff at
-that point. Until then this is feature-complete for a portfolio piece.
+GPU instancing and a WebGPU render path remain. Both solve a scale problem this project
+doesn't strictly have (30-80 sprite billboards), but Phase 6 landing on request means
+these are next rather than skipped. Neither is safely verifiable end-to-end without a
+stable full-screen browser session on this machine; each will ship behind a working
+fallback to the current WebGL/per-creature path rather than replace it outright.
 
 ## Source assets
 

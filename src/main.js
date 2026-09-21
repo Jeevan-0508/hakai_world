@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { WORLD, SPECIES } from './config.js';
-import { createWorld, tickWorld, discover } from './sim/world.js';
+import { createWorld, tickWorld, discover } from './sim/world.js'; // tickWorld/discover: main-thread fallback if the sim worker can't start
 import { territoryHolders } from './sim/ecosystem.js';
 import { buildTerrain } from './render/terrain.js';
 import { buildSky, updateSky } from './render/sky.js';
@@ -28,6 +28,42 @@ scene.fog = new THREE.FogExp2(0x0a0508, 0.006);
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 900);
 
 const world = createWorld();
+
+// Phase 6: the sim (creatures, boss, resources, carcasses, day/night, weather, events,
+// population) ticks on a Worker so a busy frame never stalls behavior logic and vice
+// versa. Player pos/yaw stays authoritative on the main thread for a responsive camera;
+// we push it to the worker each frame and pull back a plain-object snapshot to render.
+// src/sim/* has zero DOM/THREE deps, so the worker runs the exact same tickWorld() the
+// main thread used before this phase, a relocation, not new sim logic.
+let simWorker = null;
+let usingWorker = false;
+try {
+  simWorker = new Worker(new URL('./sim/worker.js', import.meta.url), { type: 'module' });
+  simWorker.onmessage = (e) => applySnapshot(e.data);
+  simWorker.onerror = (err) => {
+    console.error('sim worker crashed, falling back to main-thread simulation:', err);
+    usingWorker = false;
+  };
+  usingWorker = true;
+} catch (err) {
+  console.error('Workers unavailable, running simulation on the main thread:', err);
+  usingWorker = false;
+}
+
+function applySnapshot(snap) {
+  world.time = snap.time;
+  world.paused = snap.paused;
+  world.dayNight = snap.dayNight;
+  world.weather = snap.weather;
+  world.events = snap.events;
+  world.structure.discovered = snap.structure.discovered;
+  world.discoveredSpecies = new Set(snap.discoveredSpecies);
+  world.discoveredLocations = new Set(snap.discoveredLocations);
+  world.creatures = snap.creatures.map((c) => ({ ...c, def: SPECIES[c.species] }));
+  world.boss = { ...snap.boss, def: world.boss.def };
+  world.resources = snap.resources.map((r) => ({ ...r }));
+  world.carcasses = snap.carcasses.map((c) => ({ ...c }));
+}
 const terrain = buildTerrain(scene);
 const sky = buildSky(scene);
 const lights = buildLights(scene);
@@ -147,6 +183,7 @@ function toggleDebug() {
 function togglePhotoMode() {
   photoMode = !photoMode;
   world.paused = photoMode;
+  if (usingWorker) simWorker.postMessage({ type: 'photoMode', paused: photoMode });
   document.getElementById('hud').classList.toggle('hidden', photoMode);
   document.getElementById('photo-hud').classList.toggle('hidden', !photoMode);
   if (photoMode) {
@@ -176,10 +213,16 @@ function tryDiscover() {
   if (target.special === 'ancient_structure') {
     world.structure.discovered = true;
     world.discoveredLocations.add('ancient_structure');
+    if (usingWorker) simWorker.postMessage({ type: 'discover', special: 'ancient_structure' });
     showDiscovery('ANCIENT STRUCTURE — LOCATION LOGGED');
     return;
   }
-  if (discover(world, target)) showDiscovery(target.species);
+  // Mutate the local copy immediately for a responsive toast, then tell the worker so
+  // its authoritative copy agrees before the next snapshot overwrites ours.
+  if (discover(world, target)) {
+    if (usingWorker) simWorker.postMessage({ type: 'discover', id: target.id });
+    showDiscovery(target.species);
+  }
 }
 
 let started = false;
@@ -212,7 +255,8 @@ function frame() {
   last = now;
 
   if (started) {
-    tickWorld(world, dt);
+    if (usingWorker) simWorker.postMessage({ type: 'player', pos: world.player.pos, yaw: world.player.yaw });
+    else tickWorld(world, dt); // fallback: no worker, tick synchronously as before Phase 6
     audio.setNight(world.dayNight.isNight);
     audio.setWeather(world.weather.state);
     audio.setEvent(!!world.events.active);
