@@ -7,7 +7,8 @@ import { groundShadow } from './textures.js';
 // texture gets a soft radial alpha mask (fades true edges to 0) regardless of source,
 // and the sprite is rescaled to the image's real aspect ratio once it loads.
 const texCache = new Map();
-function loadMaskedTexture(path, sprite) {
+const aspectCache = new Map(); // path -> width/height, filled once the image loads; Phase 7 instancing reads it
+export function loadMaskedTexture(path, sprite) {
   if (texCache.has(path)) return texCache.get(path);
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 4;
@@ -31,12 +32,20 @@ function loadMaskedTexture(path, sprite) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.globalCompositeOperation = 'source-over';
     texture.needsUpdate = true;
-    if (sprite) sprite.userData.aspect = img.width / img.height;
+    const aspect = img.width / img.height;
+    aspectCache.set(path, aspect);
+    if (sprite) sprite.userData.aspect = aspect;
   };
   img.src = `assets/${path}`;
 
   texCache.set(path, texture);
   return texture;
+}
+
+// Cached aspect ratio for a species texture, or 1 (square, corrected once the real image
+// loads and instancing recomputes matrices next frame) if not loaded yet.
+export function getAspect(path) {
+  return aspectCache.get(path) || 1;
 }
 
 export function buildCreatureVisual(scene, entity, heightAt) {

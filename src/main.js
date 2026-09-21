@@ -6,7 +6,8 @@ import { buildTerrain } from './render/terrain.js';
 import { buildSky, updateSky } from './render/sky.js';
 import { buildLights, updateLights } from './render/lights.js';
 import { buildEmbers, updateEmbers, buildRain, updateRain } from './render/particles.js';
-import { buildCreatureVisual, updateCreatureVisual, disposeCreatureVisual } from './render/creatureRenderer.js';
+import { buildCreatureVisual, updateCreatureVisual } from './render/creatureRenderer.js';
+import { buildSpeciesInstances, updateSpeciesInstances } from './render/creatureInstancing.js';
 import { buildStructure, updateStructure } from './render/structure.js';
 import { buildResourceVisuals, updateResourceVisuals } from './render/resources.js';
 import { buildTerritoryVisuals } from './render/territory.js';
@@ -75,8 +76,12 @@ buildTerritoryVisuals(scene, territoryHolders(world), terrain.heightAt); // stat
 const audio = new WorldAudio();
 
 const carcassVisuals = new Map();
-const creatureVisuals = new Map();
-for (const c of world.creatures) creatureVisuals.set(c.id, buildCreatureVisual(scene, c, terrain.heightAt));
+// Phase 7: one InstancedMesh (+ shared shadow InstancedMesh) per species instead of one
+// Sprite per creature -- built once for every species regardless of current live count,
+// since population dynamics can bring a species back after a local extinction. The boss
+// is a single, unique entity, so it stays the simple untouched Sprite path.
+const speciesInstances = new Map();
+for (const key of Object.keys(SPECIES)) speciesInstances.set(key, buildSpeciesInstances(scene, key, SPECIES[key]));
 const bossVisual = buildCreatureVisual(scene, world.boss, terrain.heightAt);
 
 const fpRig = createFirstPersonRig(camera);
@@ -229,16 +234,9 @@ let started = false;
 runIntro(audio, () => { started = true; });
 
 function reconcileCreatureVisuals() {
-  // Population dynamics (births/deaths) change world.creatures over time; keep the
-  // sprite map in sync instead of rebuilding it every frame.
-  const liveIds = new Set(world.creatures.map((c) => c.id));
-  for (const [id, vis] of creatureVisuals) {
-    if (!liveIds.has(id)) { disposeCreatureVisual(scene, vis); creatureVisuals.delete(id); }
-  }
-  for (const c of world.creatures) {
-    if (!creatureVisuals.has(c.id)) creatureVisuals.set(c.id, buildCreatureVisual(scene, c, terrain.heightAt));
-  }
-
+  // Instanced species meshes need no build/dispose reconciliation -- mesh.count just
+  // tracks the live species population each frame inside updateSpeciesInstances().
+  // Carcasses are still individual meshes (max 16 at a time, not the scaling concern).
   const liveCarcassIds = new Set(world.carcasses.map((c) => c.id));
   for (const [id, vis] of carcassVisuals) {
     if (!liveCarcassIds.has(id)) { disposeCarcassVisual(scene, vis); carcassVisuals.delete(id); }
@@ -277,11 +275,15 @@ function frame() {
     updateResourceVisuals(resourceVis);
     reconcileCreatureVisuals();
 
+    const bySpecies = new Map();
     for (const c of world.creatures) {
       const dNow = Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z);
-      const cv = creatureVisuals.get(c.id);
-      if (dNow < 220) { cv.sprite.visible = true; cv.shadow.visible = true; updateCreatureVisual(cv, c); }
-      else { cv.sprite.visible = false; cv.shadow.visible = false; }
+      if (dNow >= 220) continue; // same LOD cutoff as the old per-sprite visible toggle
+      if (!bySpecies.has(c.species)) bySpecies.set(c.species, []);
+      bySpecies.get(c.species).push(c);
+    }
+    for (const [key, inst] of speciesInstances) {
+      updateSpeciesInstances(inst, bySpecies.get(key) || [], camera, terrain.heightAt);
     }
     updateCreatureVisual(bossVisual, world.boss);
     for (const vis of carcassVisuals.values()) updateCarcassVisual(vis);

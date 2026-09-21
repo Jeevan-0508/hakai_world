@@ -10,7 +10,7 @@ instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk 
 
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 6 of an 8-phase build)
+## What this is (Phase 7 of an 8-phase build)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -81,6 +81,16 @@ Added in Phase 6:
   tick rate. Falls back to the old synchronous in-thread tick automatically if `Worker`
   construction fails for any reason
 
+Added in Phase 7:
+- Creature billboards moved from one `THREE.Sprite` per creature to one `InstancedMesh`
+  per species (`src/render/creatureInstancing.js`), cutting draw calls from one-per-creature
+  to one-per-species. No custom shader: each instance's matrix is rebuilt every frame from
+  the live camera quaternion, the same spherical-billboard trick `THREE.Sprite` already
+  used, so the visual result is the same technique, just batched. Ground shadows are a
+  second shared InstancedMesh per species. State tinting (chase/combat, sleep-dim) uses
+  InstancedMesh's native per-instance color, no shader work needed. The boss stays a
+  single untouched Sprite; instancing one object has no payoff
+
 ## Architecture
 
 Strict simulation/render separation (spec section 26):
@@ -98,13 +108,12 @@ src/main.js   the only place that ticks sim then renders
 `WASD` move · `Shift` sprint · mouse look (click to lock pointer) · `E` observe ·
 `P` photo mode · `F3` debug · `M` mute
 
-## Not built yet (phases 7-8 of the original spec)
+## Not built yet (phase 8 of the original spec)
 
-GPU instancing and a WebGPU render path remain. Both solve a scale problem this project
-doesn't strictly have (30-80 sprite billboards), but Phase 6 landing on request means
-these are next rather than skipped. Neither is safely verifiable end-to-end without a
-stable full-screen browser session on this machine; each will ship behind a working
-fallback to the current WebGL/per-creature path rather than replace it outright.
+A WebGPU render path remains, feature-detected and optional: use it if `navigator.gpu`
+exists, otherwise keep the current WebGL path untouched. Not safely verifiable end-to-end
+without a stable full-screen browser session on this machine, so it ships behind that
+fallback rather than replacing the default renderer.
 
 ## Source assets
 
