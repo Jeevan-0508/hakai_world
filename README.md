@@ -10,7 +10,7 @@ instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk 
 
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 3 of an 8-phase build)
+## What this is (Phase 4 of an 8-phase build)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -58,6 +58,14 @@ Added in Phase 3:
 - Creature billboards are now created/disposed dynamically as the population changes,
   instead of being built once at load
 
+Added in Phase 4:
+- Carcasses: a death now leaves a temporary carcass instead of just vanishing. Predators
+  and omnivores can scavenge it (`SCAVENGE` state) for a faster energy gain than grazing —
+  worth the risk of carrion. An unclaimed carcass rots away on its own after 90 seconds
+- Verified with a direct scavenging test (predator standing over a carcass eats it,
+  energy rises, state exits cleanly) since the emergent trigger is probabilistic and
+  distance-gated by design, not guaranteed in any short random window
+
 ## Architecture
 
 Strict simulation/render separation (spec section 26):
@@ -75,11 +83,10 @@ src/main.js   the only place that ticks sim then renders
 `WASD` move · `Shift` sprint · mouse look (click to lock pointer) · `E` observe ·
 `P` photo mode · `F3` debug · `M` mute
 
-## Not built yet (phases 4–8 of the original spec)
+## Not built yet (phases 5–8 of the original spec)
 
 Web Worker simulation offload, instancing stress-tested past ~40 entities, WebGPU path,
-mobile controls, corpses/scavenging as a resource. Tracked so the next session picks up
-cleanly instead of re-auditing.
+mobile controls. Tracked so the next session picks up cleanly instead of re-auditing.
 
 ## Source assets
 

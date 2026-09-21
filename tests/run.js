@@ -120,5 +120,36 @@ globalThis.localStorage = {
   assert(Object.values(counts3).every((n) => n <= 6), 'population: species cap (6) holds under sustained reproduction pressure');
 }
 
+// 7. Carcasses: starvation death leaves a carcass; it decays if unclaimed; a scavenging
+// predator standing over it consumes it and gains energy; SCAVENGE exits cleanly when done.
+{
+  const { spawnCarcass, tickCarcasses } = await import('../src/sim/carcasses.js');
+
+  // 7a. Death -> carcass appears (already exercised end-to-end via population.js's starvation
+  // path in test 6; here we check the carcass primitives directly).
+  localStorage._d = {};
+  const w = createWorld();
+  assert(Array.isArray(w.carcasses) && w.carcasses.length === 0, 'carcasses: world starts with none');
+  spawnCarcass(w, { x: 5, z: 5 }, 'goblin_scout');
+  assert(w.carcasses.length === 1 && w.carcasses[0].amount > 0, 'carcasses: spawnCarcass adds one with a positive amount');
+
+  // 7b. Unclaimed carcasses rot away on their own after enough time.
+  for (let i = 0; i < 40; i++) tickCarcasses(w, 3); // 120s > 90s lifespan
+  assert(w.carcasses.length === 0, 'carcasses: an unclaimed carcass eventually decays away');
+
+  // 7c. A predator standing on a carcass scavenges it and gains energy; exits when full/empty.
+  localStorage._d = {};
+  const w2 = createWorld();
+  const predator = w2.creatures.find((c) => c.def.diet === 'predator');
+  predator.state = 'SCAVENGE'; predator.stateT = 0; predator.energy = 0.3;
+  spawnCarcass(w2, { x: predator.pos.x, z: predator.pos.z }, 'goblin_scout');
+  predator.carcassTarget = w2.carcasses[0];
+  const startAmount = w2.carcasses[0].amount;
+  for (let i = 0; i < 100; i++) tickWorld(w2, 0.1);
+  assert(predator.energy > 0.3, 'carcasses: scavenging raises the predator\'s energy');
+  assert(!w2.carcasses.length || w2.carcasses[0].amount < startAmount, 'carcasses: the carcass amount drops while being eaten');
+  assert(predator.state !== 'SCAVENGE' || predator.energy < 0.96, 'carcasses: SCAVENGE exits once satiated or the carcass is spent');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

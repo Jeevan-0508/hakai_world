@@ -10,6 +10,7 @@ import { buildCreatureVisual, updateCreatureVisual, disposeCreatureVisual } from
 import { buildStructure, updateStructure } from './render/structure.js';
 import { buildResourceVisuals, updateResourceVisuals } from './render/resources.js';
 import { buildTerritoryVisuals } from './render/territory.js';
+import { buildCarcassVisual, updateCarcassVisual, disposeCarcassVisual } from './render/carcasses.js';
 import { createFirstPersonRig, createPhotoRig } from './render/camera.js';
 import { updateHud, showDiscovery, updateDebug } from './render/hud.js';
 import { runIntro } from './render/cinematic.js';
@@ -37,6 +38,7 @@ const resourceVis = buildResourceVisuals(scene, world.resources, terrain.heightA
 buildTerritoryVisuals(scene, territoryHolders(world), terrain.heightAt); // static decals, homes don't move
 const audio = new WorldAudio();
 
+const carcassVisuals = new Map();
 const creatureVisuals = new Map();
 for (const c of world.creatures) creatureVisuals.set(c.id, buildCreatureVisual(scene, c, terrain.heightAt));
 const bossVisual = buildCreatureVisual(scene, world.boss, terrain.heightAt);
@@ -127,6 +129,14 @@ function reconcileCreatureVisuals() {
   for (const c of world.creatures) {
     if (!creatureVisuals.has(c.id)) creatureVisuals.set(c.id, buildCreatureVisual(scene, c, terrain.heightAt));
   }
+
+  const liveCarcassIds = new Set(world.carcasses.map((c) => c.id));
+  for (const [id, vis] of carcassVisuals) {
+    if (!liveCarcassIds.has(id)) { disposeCarcassVisual(scene, vis); carcassVisuals.delete(id); }
+  }
+  for (const c of world.carcasses) {
+    if (!carcassVisuals.has(c.id)) carcassVisuals.set(c.id, buildCarcassVisual(scene, c, terrain.heightAt));
+  }
 }
 
 let last = performance.now();
@@ -164,6 +174,7 @@ function frame() {
       else { cv.sprite.visible = false; cv.shadow.visible = false; }
     }
     updateCreatureVisual(bossVisual, world.boss);
+    for (const vis of carcassVisuals.values()) updateCarcassVisual(vis);
 
     updateHud(world, nearestUndiscovered());
     if (debugOn) {
@@ -171,6 +182,7 @@ function frame() {
         `FPS ${Math.round(1 / dt)}\n` +
         `entities ${world.creatures.length + 1}\n` +
         `resources ${world.resources.length}\n` +
+        `carcasses ${world.carcasses.length}\n` +
         `draws ${renderer.info.render.calls}\n` +
         `tris ${renderer.info.render.triangles}\n` +
         `state ${world.boss.state}\n` +

@@ -9,6 +9,7 @@ import { loadSave } from '../save.js';
 import { makeResources, tickResources } from './resources.js';
 import { tickEcosystem } from './ecosystem.js';
 import { tickPopulation } from './population.js';
+import { tickCarcasses } from './carcasses.js';
 
 export function createWorld() {
   const rng = makeRng(WORLD.seed);
@@ -31,6 +32,7 @@ export function createWorld() {
     discoveredSpecies: new Set(save.discoveredSpecies || []),
     discoveredLocations: new Set(save.discoveredLocations || []),
     resources: makeResources(rng),
+    carcasses: [],
     ecoT: 0,
   };
 
@@ -69,6 +71,7 @@ export function tickWorld(world, dt) {
   tickResources(world.resources, dt, world.creatures);
   tickEcosystem(world, dt);
   tickPopulation(world, dt);
+  tickCarcasses(world, dt);
 
   const redMoon = world.events.active?.id === 'red_moon';
   for (const c of world.creatures) tickCreature(c, dt, world, world.rng);

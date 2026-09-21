@@ -1,10 +1,11 @@
 // Creature FSM — section 8/9/10/11 of spec. Lightweight, per-profile behavior, no rendering here.
 import { nearestResource } from './resources.js';
+import { nearestCarcass } from './carcasses.js';
 
 export const STATE = {
   IDLE: 'IDLE', WANDER: 'WANDER', OBSERVE: 'OBSERVE', INVESTIGATE: 'INVESTIGATE',
   CHASE: 'CHASE', FLEE: 'FLEE', COMBAT: 'COMBAT', RETREAT: 'RETREAT', RECOVER: 'RECOVER',
-  SLEEP: 'SLEEP', PATROL: 'PATROL', GATHER: 'GATHER', MIGRATE: 'MIGRATE',
+  SLEEP: 'SLEEP', PATROL: 'PATROL', GATHER: 'GATHER', MIGRATE: 'MIGRATE', SCAVENGE: 'SCAVENGE',
 };
 
 let nextId = 1;
@@ -30,6 +31,7 @@ export function spawnCreature(speciesKey, species, pos, rng) {
     patrolPoints: species.profile === 'patrol' ? makePatrolLoop(pos, rng) : null,
     gatherNode: null,
     migrateTarget: null,
+    carcassTarget: null,
   };
 }
 
@@ -46,6 +48,7 @@ function makePatrolLoop(home, rng) {
 
 const WANDER_SPEED_MULT = { skittish: 1.0, pack: 1.0, territorial: 0.6, sentinel: 0.4, patrol: 0.8, stalker: 0.9, flyer: 1.2 };
 const CAN_FORAGE = (def) => (def.diet === 'prey' || def.diet === 'omnivore') && !def.flying;
+const CAN_SCAVENGE = (def) => (def.diet === 'predator' || def.diet === 'omnivore') && !def.flying;
 
 export function tickCreature(c, dt, world, rng) {
   c.stateT += dt;
@@ -79,6 +82,10 @@ export function tickCreature(c, dt, world, rng) {
     case STATE.SLEEP:
       break;
     case STATE.IDLE:
+      if (CAN_SCAVENGE(c.def) && c.energy < 0.7 && rng() < 0.015) {
+        const carrion = nearestCarcass(c.pos, world.carcasses, c.perceptionRange);
+        if (carrion) { c.carcassTarget = carrion; c.state = STATE.SCAVENGE; c.stateT = 0; break; }
+      }
       if (CAN_FORAGE(c.def) && c.energy < 0.75 && rng() < 0.01) {
         const node = nearestResource(c.pos, world.resources, { avoidDanger: true });
         if (node) { c.gatherNode = node; c.state = STATE.GATHER; c.stateT = 0; break; }
@@ -113,6 +120,20 @@ export function tickCreature(c, dt, world, rng) {
         node.amount = Math.max(0, node.amount - dt * 0.06);
         c.energy = Math.min(1, c.energy + dt * 0.09);
         if (c.stateT > 5 || c.energy > 0.95) { c.state = STATE.WANDER; c.stateT = 0; c.gatherNode = null; }
+      }
+      break;
+    }
+    case STATE.SCAVENGE: {
+      const carrion = c.carcassTarget;
+      if (!carrion || !world.carcasses.includes(carrion) || carrion.amount < 0.02) {
+        c.state = STATE.WANDER; c.stateT = 0; c.carcassTarget = null; break;
+      }
+      const dc = Math.hypot(carrion.pos.x - c.pos.x, carrion.pos.z - c.pos.z);
+      if (dc > 1.5) { speed = c.def.speed * mult * 0.7; c.heading = Math.atan2(carrion.pos.x - c.pos.x, carrion.pos.z - c.pos.z); }
+      else {
+        carrion.amount = Math.max(0, carrion.amount - dt * 0.1);
+        c.energy = Math.min(1, c.energy + dt * 0.14); // richer than grazing — worth the risk of carrion
+        if (c.stateT > 6 || c.energy > 0.95 || carrion.amount < 0.02) { c.state = STATE.WANDER; c.stateT = 0; c.carcassTarget = null; }
       }
       break;
     }

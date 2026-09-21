@@ -4,6 +4,7 @@
 // per-frame concern.
 import { WORLD } from '../config.js';
 import { spawnCreature } from './creature.js';
+import { spawnCarcass } from './carcasses.js';
 
 const STARVE_THRESHOLD = 0.04;
 const STARVE_SECONDS = 25;      // sustained near-zero energy before death
@@ -25,6 +26,7 @@ export function tickPopulation(world, dt) {
   if (died.length) {
     world.creatures = world.creatures.filter((c) => c.starveT < STARVE_SECONDS);
     world.deaths = (world.deaths || []).concat(died.map((c) => c.id));
+    for (const d of died) spawnCarcass(world, d.pos, d.species);
   }
 
   // Reproduction: thriving, cooled-down, non-elite creatures under their species cap spawn
