@@ -10,7 +10,7 @@ instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk 
 
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 1 of an 8-phase build)
+## What this is (Phase 2 of an 8-phase build)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -35,6 +35,18 @@ Shipped in this slice:
   free orbit camera, screenshot-ready canvas), debug overlay (`F3`)
 - Versioned `localStorage` save: player position, discovered species/locations
 
+Added in Phase 2:
+- 16 resource nodes (glowing flora/fungus clusters) that herbivores/omnivores graze —
+  visible shrinking/regrowth, danger-tinted red when predators linger nearby
+- `GATHER` state (creatures walk to and feed at a resource node), `PATROL` state (fixed
+  waypoint loops for the `patrol` profile), `MIGRATE` state (relocates a creature's home
+  when its territory's resources stay depleted or dangerous for a sustained stretch —
+  the predator → prey → resource pressure loop, checked on a 6s cadence, not every frame)
+- Territory ground decals for `territorial`/`sentinel` species: soft, low-opacity,
+  species-tinted textured circles under a creature's home, not a UI marker
+- LOD: creature billboards beyond 220 units of the player stop updating/rendering (sim
+  still ticks them at full fidelity; this only trims render cost)
+
 ## Architecture
 
 Strict simulation/render separation (spec section 26):
@@ -52,11 +64,11 @@ src/main.js   the only place that ticks sim then renders
 `WASD` move · `Shift` sprint · mouse look (click to lock pointer) · `E` observe ·
 `P` photo mode · `F3` debug · `M` mute
 
-## Not built yet (phases 2–8 of the original spec)
+## Not built yet (phases 3–8 of the original spec)
 
-Deeper predator/prey ecology, territory visualization beyond spawn radius, Web Worker
-simulation offload, LOD/instancing stress-tested past ~30 entities, WebGPU path, mobile
-controls. Tracked so the next session picks up cleanly instead of re-auditing.
+Automated test suite for the sim layer, Web Worker simulation offload, instancing
+stress-tested past ~30 entities, WebGPU path, mobile controls. Tracked so the next
+session picks up cleanly instead of re-auditing.
 
 ## Source assets
 

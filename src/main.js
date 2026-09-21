@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { WORLD, SPECIES } from './config.js';
 import { createWorld, tickWorld, discover } from './sim/world.js';
+import { territoryHolders } from './sim/ecosystem.js';
 import { buildTerrain } from './render/terrain.js';
 import { buildSky, updateSky } from './render/sky.js';
 import { buildLights, updateLights } from './render/lights.js';
 import { buildEmbers, updateEmbers, buildRain, updateRain } from './render/particles.js';
 import { buildCreatureVisual, updateCreatureVisual } from './render/creatureRenderer.js';
 import { buildStructure, updateStructure } from './render/structure.js';
+import { buildResourceVisuals, updateResourceVisuals } from './render/resources.js';
+import { buildTerritoryVisuals } from './render/territory.js';
 import { createFirstPersonRig, createPhotoRig } from './render/camera.js';
 import { updateHud, showDiscovery, updateDebug } from './render/hud.js';
 import { runIntro } from './render/cinematic.js';
@@ -30,6 +33,8 @@ const lights = buildLights(scene);
 const embers = buildEmbers(scene);
 const rain = buildRain(scene);
 const structureVis = buildStructure(scene, world.structure.pos, terrain.heightAt);
+const resourceVis = buildResourceVisuals(scene, world.resources, terrain.heightAt);
+buildTerritoryVisuals(scene, territoryHolders(world), terrain.heightAt); // static decals, homes don't move
 const audio = new WorldAudio();
 
 const creatureVisuals = new Map();
@@ -137,8 +142,14 @@ function frame() {
     updateEmbers(embers, dt);
     updateRain(rain, dt, world.weather.state === 'emberstorm');
     updateStructure(structureVis, world.time);
+    updateResourceVisuals(resourceVis);
 
-    for (const c of world.creatures) updateCreatureVisual(creatureVisuals.get(c.id), c);
+    for (const c of world.creatures) {
+      const dNow = Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z);
+      const cv = creatureVisuals.get(c.id);
+      if (dNow < 220) { cv.sprite.visible = true; cv.shadow.visible = true; updateCreatureVisual(cv, c); }
+      else { cv.sprite.visible = false; cv.shadow.visible = false; }
+    }
     updateCreatureVisual(bossVisual, world.boss);
 
     updateHud(world, nearestUndiscovered());
@@ -146,6 +157,7 @@ function frame() {
       updateDebug(
         `FPS ${Math.round(1 / dt)}\n` +
         `entities ${world.creatures.length + 1}\n` +
+        `resources ${world.resources.length}\n` +
         `draws ${renderer.info.render.calls}\n` +
         `tris ${renderer.info.render.triangles}\n` +
         `state ${world.boss.state}\n` +

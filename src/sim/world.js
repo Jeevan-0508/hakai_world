@@ -6,6 +6,8 @@ import { makeDayNight, tickDayNight } from './dayNight.js';
 import { makeWeather, tickWeather } from './weather.js';
 import { makeEvents, tickEvents } from './events.js';
 import { loadSave } from '../save.js';
+import { makeResources, tickResources } from './resources.js';
+import { tickEcosystem } from './ecosystem.js';
 
 export function createWorld() {
   const rng = makeRng(WORLD.seed);
@@ -27,6 +29,8 @@ export function createWorld() {
     structure: { pos: { x: 0, z: -60 }, discovered: !!save.discoveredLocations?.includes('ancient_structure') },
     discoveredSpecies: new Set(save.discoveredSpecies || []),
     discoveredLocations: new Set(save.discoveredLocations || []),
+    resources: makeResources(rng),
+    ecoT: 0,
   };
 
   const keys = Object.keys(SPECIES);
@@ -60,6 +64,9 @@ export function tickWorld(world, dt) {
   tickDayNight(world.dayNight, dt);
   tickWeather(world.weather, dt);
   tickEvents(world.events, dt);
+
+  tickResources(world.resources, dt, world.creatures);
+  tickEcosystem(world, dt);
 
   const redMoon = world.events.active?.id === 'red_moon';
   for (const c of world.creatures) tickCreature(c, dt, world, world.rng);
