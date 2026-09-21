@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HAKAI // WORLD</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="boot">
+    <div id="boot-text">CLICK TO INITIALIZE</div>
+  </div>
+
+  <div id="cinematic" class="hidden">
+    <div id="cine-line1">HAKAI PROTOCOL</div>
+    <div id="cine-line2">SECTOR // UNKNOWN</div>
+    <div id="cine-line3">WORLD STATE // UNSTABLE</div>
+  </div>
+
+  <canvas id="scene"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="hud-corner-tl">
+      <div id="clock">--:--</div>
+      <div id="weather-label">CLEAR</div>
+    </div>
+    <div id="hud-corner-tr">
+      <div id="event-banner" class="hidden"></div>
+    </div>
+    <div id="prompt" class="hidden">[E] OBSERVE</div>
+    <div id="discovery" class="hidden">
+      <div id="discovery-title">UNKNOWN ENTITY</div>
+      <div id="discovery-species"></div>
+    </div>
+    <div id="crosshair"></div>
+    <div id="hint">WASD MOVE · MOUSE LOOK · E OBSERVE · P PHOTO MODE · F3 DEBUG</div>
+  </div>
+
+  <div id="photo-hud" class="hidden">PHOTO MODE — SIM PAUSED — DRAG TO ORBIT — SCROLL TO ZOOM — P TO EXIT</div>
+  <div id="debug" class="hidden"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
