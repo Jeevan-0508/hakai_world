@@ -6,7 +6,7 @@ import { buildTerrain } from './render/terrain.js';
 import { buildSky, updateSky } from './render/sky.js';
 import { buildLights, updateLights } from './render/lights.js';
 import { buildEmbers, updateEmbers, buildRain, updateRain } from './render/particles.js';
-import { buildCreatureVisual, updateCreatureVisual } from './render/creatureRenderer.js';
+import { buildCreatureVisual, updateCreatureVisual, disposeCreatureVisual } from './render/creatureRenderer.js';
 import { buildStructure, updateStructure } from './render/structure.js';
 import { buildResourceVisuals, updateResourceVisuals } from './render/resources.js';
 import { buildTerritoryVisuals } from './render/territory.js';
@@ -117,6 +117,18 @@ function tryDiscover() {
 let started = false;
 runIntro(audio, () => { started = true; });
 
+function reconcileCreatureVisuals() {
+  // Population dynamics (births/deaths) change world.creatures over time; keep the
+  // sprite map in sync instead of rebuilding it every frame.
+  const liveIds = new Set(world.creatures.map((c) => c.id));
+  for (const [id, vis] of creatureVisuals) {
+    if (!liveIds.has(id)) { disposeCreatureVisual(scene, vis); creatureVisuals.delete(id); }
+  }
+  for (const c of world.creatures) {
+    if (!creatureVisuals.has(c.id)) creatureVisuals.set(c.id, buildCreatureVisual(scene, c, terrain.heightAt));
+  }
+}
+
 let last = performance.now();
 function frame() {
   const now = performance.now();
@@ -143,6 +155,7 @@ function frame() {
     updateRain(rain, dt, world.weather.state === 'emberstorm');
     updateStructure(structureVis, world.time);
     updateResourceVisuals(resourceVis);
+    reconcileCreatureVisuals();
 
     for (const c of world.creatures) {
       const dNow = Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z);

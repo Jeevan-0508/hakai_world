@@ -79,3 +79,10 @@ export function updateCreatureVisual(vis, entity) {
   const shadowScale = flying ? Math.max(0.3, 1 - (baseY - groundY) / 40) : 1;
   vis.shadow.scale.setScalar(shadowScale);
 }
+
+export function disposeCreatureVisual(scene, vis) {
+  scene.remove(vis.sprite, vis.shadow);
+  vis.sprite.material.dispose();
+  vis.shadow.material.dispose();
+  vis.shadow.geometry.dispose();
+}

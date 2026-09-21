@@ -8,6 +8,7 @@ import { makeEvents, tickEvents } from './events.js';
 import { loadSave } from '../save.js';
 import { makeResources, tickResources } from './resources.js';
 import { tickEcosystem } from './ecosystem.js';
+import { tickPopulation } from './population.js';
 
 export function createWorld() {
   const rng = makeRng(WORLD.seed);
@@ -67,6 +68,7 @@ export function tickWorld(world, dt) {
 
   tickResources(world.resources, dt, world.creatures);
   tickEcosystem(world, dt);
+  tickPopulation(world, dt);
 
   const redMoon = world.events.active?.id === 'red_moon';
   for (const c of world.creatures) tickCreature(c, dt, world, world.rng);

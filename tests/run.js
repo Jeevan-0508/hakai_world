@@ -83,5 +83,42 @@ globalThis.localStorage = {
   assert(Array.isArray(loaded.discoveredLocations) && loaded.discoveredLocations.includes('ancient_structure'), 'save/load: discovered locations round-trips');
 }
 
+// 6. Population: starved creatures die, thriving creatures reproduce (species-capped).
+{
+  const { tickPopulation } = await import('../src/sim/population.js');
+  localStorage._d = {};
+  const w = createWorld();
+
+  // Force one creature to starve: sustained near-zero energy for longer than the threshold.
+  // (Total population can still rise in the same window from unrelated reproduction, so check
+  // this specific creature's id, not the raw count.)
+  const targetId = w.creatures[0].id;
+  w.creatures[0].energy = 0.01;
+  for (let i = 0; i < 8; i++) tickPopulation(w, 4); // 8 ticks * 4s spacing > STARVE_SECONDS
+  assert(!w.creatures.some((c) => c.id === targetId), 'population: a sustained-zero-energy creature is removed');
+
+  // Force a second creature to thrive: high energy, no cooldown, under species cap.
+  localStorage._d = {};
+  const w2 = createWorld();
+  const before2 = w2.creatures.length;
+  const parent = w2.creatures.find((c) => c.def.tier !== 'elite');
+  parent.energy = 0.99;
+  parent.reproCooldown = 0;
+  tickPopulation(w2, 4);
+  assert(w2.creatures.length > before2, 'population: a thriving creature reproduces');
+
+  // Species cap: pin every non-elite creature of one species to reproduce-ready and confirm
+  // the count never exceeds the soft cap even after many ticks.
+  localStorage._d = {};
+  const w3 = createWorld();
+  for (let t = 0; t < 40; t++) {
+    for (const c of w3.creatures) { if (c.def.tier !== 'elite') { c.energy = 0.99; c.reproCooldown = 0; } }
+    tickPopulation(w3, 4);
+  }
+  const counts3 = {};
+  for (const c of w3.creatures) counts3[c.species] = (counts3[c.species] || 0) + 1;
+  assert(Object.values(counts3).every((n) => n <= 6), 'population: species cap (6) holds under sustained reproduction pressure');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

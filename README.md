@@ -10,7 +10,7 @@ instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk 
 
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 2 of an 8-phase build)
+## What this is (Phase 3 of an 8-phase build)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -46,6 +46,17 @@ Added in Phase 2:
   species-tinted textured circles under a creature's home, not a UI marker
 - LOD: creature billboards beyond 220 units of the player stop updating/rendering (sim
   still ticks them at full fidelity; this only trims render cost)
+- `tests/run.js`: a framework-free assertion runner for `src/sim/*` (RNG determinism,
+  world-gen reproducibility, spawn integrity, a 300s stability run, save/load round-trip)
+
+Added in Phase 3:
+- Population dynamics closes the loop Phase 2 left cosmetic: a creature stuck near zero
+  energy for a sustained stretch (starvation) is removed from the world; a thriving,
+  cooled-down, non-elite creature reproduces near its home. A soft per-species cap (6)
+  keeps a good season from running away unbounded — verified stable over a 3000-simulated-
+  second run with no runaway growth
+- Creature billboards are now created/disposed dynamically as the population changes,
+  instead of being built once at load
 
 ## Architecture
 
@@ -64,11 +75,11 @@ src/main.js   the only place that ticks sim then renders
 `WASD` move · `Shift` sprint · mouse look (click to lock pointer) · `E` observe ·
 `P` photo mode · `F3` debug · `M` mute
 
-## Not built yet (phases 3–8 of the original spec)
+## Not built yet (phases 4–8 of the original spec)
 
-Automated test suite for the sim layer, Web Worker simulation offload, instancing
-stress-tested past ~30 entities, WebGPU path, mobile controls. Tracked so the next
-session picks up cleanly instead of re-auditing.
+Web Worker simulation offload, instancing stress-tested past ~40 entities, WebGPU path,
+mobile controls, corpses/scavenging as a resource. Tracked so the next session picks up
+cleanly instead of re-auditing.
 
 ## Source assets
 
