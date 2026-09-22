@@ -36,14 +36,31 @@ export function createWorld() {
     ecoT: 0,
   };
 
+  // Section 5: a composed first encounter. The player spawns at (0,1.7,40) facing -z
+  // (toward the structure at z=-60), so these fixed positions sit directly in that view --
+  // real sim entities (same spawnCreature(), same FSM, same discovery rules) with
+  // intentional initial placement instead of a scripted cinematic. Everything else below
+  // still scatters procedurally; only these specific first instances are hand-placed.
+  const composedEncounter = {
+    hobgoblin_chief: [{ x: 10, z: 18 }],
+    pack_wolf: [{ x: 18, z: 22 }, { x: 24, z: 15 }],
+    primordial_demon: [{ x: -25, z: -5 }],
+  };
+
   const keys = Object.keys(SPECIES);
   keys.forEach((key, i) => {
     const def = SPECIES[key];
     const count = def.tier === 'elite' ? 1 : (def.flying ? 2 : 2 + Math.floor(rng() * 2));
+    const fixed = composedEncounter[key] || [];
     for (let n = 0; n < count; n++) {
-      const ang = rng() * Math.PI * 2;
-      const r = 30 + rng() * WORLD.spawnRadius;
-      const pos = { x: Math.sin(ang) * r, z: Math.cos(ang) * r };
+      let pos;
+      if (fixed[n]) {
+        pos = fixed[n];
+      } else {
+        const ang = rng() * Math.PI * 2;
+        const r = 30 + rng() * WORLD.spawnRadius;
+        pos = { x: Math.sin(ang) * r, z: Math.cos(ang) * r };
+      }
       world.creatures.push(spawnCreature(key, def, pos, rng));
     }
   });

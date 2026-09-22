@@ -54,6 +54,13 @@ canvas#scene { position: fixed; inset: 0; display: block; }
 #discovery-title { font-size: 11px; letter-spacing: 4px; color: #7a1f1f; }
 #discovery-species { font-size: 20px; letter-spacing: 3px; color: #ffb37a; margin-top: 4px; text-shadow: 0 0 14px rgba(255,120,40,.6); }
 
+#sense-indicator {
+  position: absolute; top: 42%; left: 50%; transform: translate(-50%, 0);
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 3px;
+  color: #b98a6a; opacity: 0.75;
+}
+#sense-arrow { display: inline-block; transition: transform 0.15s linear; }
+
 #crosshair {
   position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; margin: -3px;
   border-radius: 50%; background: rgba(255,180,120,0.5);

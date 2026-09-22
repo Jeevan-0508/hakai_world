@@ -8,6 +8,7 @@ import { buildLights, updateLights } from './render/lights.js';
 import { buildEmbers, updateEmbers, buildRain, updateRain } from './render/particles.js';
 import { buildCreatureVisual, updateCreatureVisual } from './render/creatureRenderer.js';
 import { buildSpeciesInstances, updateSpeciesInstances } from './render/creatureInstancing.js';
+import { getAspect } from './render/creatureRenderer.js';
 import { buildStructure, updateStructure } from './render/structure.js';
 import { buildResourceVisuals, updateResourceVisuals } from './render/resources.js';
 import { buildTerritoryVisuals } from './render/territory.js';
@@ -28,7 +29,7 @@ const canvas = document.getElementById('scene');
 // namespace as before; only this renderer's own construction reaches into 'three/webgpu',
 // which is the documented usage pattern for mixing the two.
 let renderer = null;
-if (navigator.gpu) {
+if (navigator.gpu && !location.search.includes('forcewebgl')) {
   try {
     const { WebGPURenderer } = await import('three/webgpu');
     const gpuRenderer = new WebGPURenderer({ canvas, antialias: true });
@@ -221,12 +222,47 @@ function togglePhotoMode() {
   }
 }
 
+// Phase 9 visibility fix (section 6/7): a creature can only be discovered/named if it is
+// both close enough (per-species discoveryDistance, config.js) AND actually in front of
+// the camera and roughly on-screen -- proximity alone used to be the only gate, which is
+// exactly how the HUD could name a creature the player had no visual read on. Not pixel-
+// perfect occlusion (spec explicitly doesn't ask for that yet), just a real screen-space
+// projection test.
+const _toTarget = new THREE.Vector3();
+const _camFwd = new THREE.Vector3();
+const _projected = new THREE.Vector3();
+function screenTest(worldX, worldZ) {
+  const worldY = terrain.heightAt(worldX, worldZ) + 2.2; // rough torso height, not pixel-exact
+  camera.getWorldDirection(_camFwd);
+  _toTarget.set(worldX - camera.position.x, worldY - camera.position.y, worldZ - camera.position.z);
+  const inFront = _toTarget.dot(_camFwd) > 0;
+  if (!inFront) return { onScreen: false, inFront: false, ndcX: 2, ndcY: 2 };
+  _projected.set(worldX, worldY, worldZ).project(camera);
+  const onScreen = Math.abs(_projected.x) < 0.92 && Math.abs(_projected.y) < 0.92;
+  return { onScreen, inFront: true, ndcX: _projected.x, ndcY: _projected.y };
+}
+
+// Signed heading (degrees, 0 = straight ahead, +90 = to the player's right, 180 = behind)
+// from the camera to a world point, projected onto the horizontal plane. Used only for the
+// subtle "something is out there" arrow (section 8), never to name the creature.
+function headingTo(worldX, worldZ) {
+  const camYaw = Math.atan2(_camFwd.x, _camFwd.z);
+  const worldAngle = Math.atan2(worldX - camera.position.x, worldZ - camera.position.z);
+  let rel = worldAngle - camYaw;
+  rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+  return rel * 180 / Math.PI;
+}
+
 function nearestUndiscovered() {
-  let best = null, bestDist = 12;
+  let best = null, bestDist = Infinity;
   const all = [...world.creatures, world.boss];
   for (const c of all) {
     if (c.discovered) continue;
+    const discoverRange = c.def?.discoveryDistance ?? 12;
     const d = Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z);
+    if (d >= discoverRange) continue;
+    const screen = screenTest(c.pos.x, c.pos.z);
+    if (!screen.onScreen) continue; // in range but not actually visible -- not discoverable yet
     if (d < bestDist) { best = c; bestDist = d; }
   }
   if (!world.structure.discovered) {
@@ -236,6 +272,21 @@ function nearestUndiscovered() {
   return best;
 }
 
+// Nearby-but-not-discoverable-yet (out of view or just past discovery range, still inside
+// a wider "sense" radius): drives the subtle directional indicator only, never a name.
+function nearestSensed() {
+  let best = null, bestDist = Infinity;
+  for (const c of world.creatures) {
+    if (c.discovered) continue;
+    const senseRange = Math.min((c.def?.visibilityDistance ?? 150) * 0.4, 55);
+    const d = Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z);
+    if (d >= senseRange) continue;
+    if (d < bestDist) { best = c; bestDist = d; }
+  }
+  if (!best) return null;
+  return { angleDeg: headingTo(best.pos.x, best.pos.z), dist: bestDist };
+}
+
 function tryDiscover() {
   const target = nearestUndiscovered();
   if (!target) return;
@@ -243,7 +294,7 @@ function tryDiscover() {
     world.structure.discovered = true;
     world.discoveredLocations.add('ancient_structure');
     if (usingWorker) simWorker.postMessage({ type: 'discover', special: 'ancient_structure' });
-    showDiscovery('ANCIENT STRUCTURE — LOCATION LOGGED');
+    showDiscovery('ANCIENT STRUCTURE \u2014 LOCATION LOGGED');
     return;
   }
   // Mutate the local copy immediately for a responsive toast, then tell the worker so
@@ -312,8 +363,33 @@ function frame() {
     updateCreatureVisual(bossVisual, world.boss);
     for (const vis of carcassVisuals.values()) updateCarcassVisual(vis);
 
-    updateHud(world, nearestUndiscovered());
+    const undiscoveredNow = nearestUndiscovered();
+    const sensedNow = undiscoveredNow ? null : nearestSensed();
+    updateHud(world, undiscoveredNow, sensedNow);
     if (debugOn) {
+      // Section 14: creature inspector -- the nearest live creature to the player, with
+      // exactly the fields the spec asks for, so a visibility bug can be diagnosed by
+      // reading numbers instead of guessing from the rendered image.
+      let nearest = null, nearestDist = Infinity;
+      for (const c of world.creatures) {
+        const dd = Math.hypot(c.pos.x - world.player.pos.x, c.pos.z - world.player.pos.z);
+        if (dd < nearestDist) { nearestDist = dd; nearest = c; }
+      }
+      let inspectorLines = 'creature inspector: none nearby';
+      if (nearest) {
+        const screen = screenTest(nearest.pos.x, nearest.pos.z);
+        const aspect = getAspect(nearest.def.file);
+        const discoverRange = nearest.def?.discoveryDistance ?? 12;
+        inspectorLines =
+          `-- inspector --\n` +
+          `id ${nearest.id} species ${nearest.species}\n` +
+          `state ${nearest.state}\n` +
+          `pos ${nearest.pos.x.toFixed(1)},${nearest.pos.z.toFixed(1)} dist ${nearestDist.toFixed(1)}\n` +
+          `screen ${screen.ndcX.toFixed(2)},${screen.ndcY.toFixed(2)}\n` +
+          `IN_VIEW=${screen.inFront} VISIBLE=${screen.onScreen} ` +
+          `DISCOVERABLE=${screen.onScreen && nearestDist < discoverRange}\n` +
+          `texture ${aspect !== 1 ? 'loaded' : 'loading/square'} aspect ${aspect.toFixed(2)} scale ${nearest.def.scale}`;
+      }
       updateDebug(
         `FPS ${Math.round(1 / dt)}\n` +
         `entities ${world.creatures.length + 1}\n` +
@@ -323,7 +399,8 @@ function frame() {
         `tris ${renderer.info.render.triangles}\n` +
         `state ${world.boss.state}\n` +
         `weather ${world.weather.state}\n` +
-        `event ${world.events.active?.id || 'none'}`
+        `event ${world.events.active?.id || 'none'}\n` +
+        inspectorLines
       );
     }
   }
@@ -341,3 +418,5 @@ window.addEventListener('resize', () => {
 
 setInterval(() => writeSave(world), 8000);
 window.addEventListener('beforeunload', () => writeSave(world));
+
+window.__hakaiDebug = { scene, camera, renderer, world, THREE, frame };

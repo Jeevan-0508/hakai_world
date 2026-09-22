@@ -14,8 +14,12 @@ function snapshot() {
     time: world.time,
     paused: world.paused,
     dayNight: world.dayNight,
-    weather: world.weather,
-    events: world.events,
+    // .weather/.events carry their own rng closure (weather.js/events.js store it on the
+    // object for their own reroll logic) -- postMessage cannot structured-clone a function,
+    // so sending these wholesale threw DataCloneError on every single tick and the worker
+    // snapshot never reached the main thread. Send only the plain data fields.
+    weather: { state: world.weather.state, t: world.weather.t, next: world.weather.next },
+    events: { active: world.events.active, t: world.events.t, cooldown: world.events.cooldown },
     structure: { discovered: world.structure.discovered },
     discoveredSpecies: [...world.discoveredSpecies],
     discoveredLocations: [...world.discoveredLocations],

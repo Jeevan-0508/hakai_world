@@ -3,7 +3,11 @@ import { clockString } from '../sim/dayNight.js';
 const els = {};
 function q(id) { return els[id] || (els[id] = document.getElementById(id)); }
 
-export function updateHud(world, nearestUndiscovered) {
+// nearestUndiscovered: onscreen + close enough to actually name (real discovery target).
+// sensed: nearby but off-screen/behind the player -- undiscovered, so the HUD may only
+// hint that *something* is out there (a direction), never a species name. This is the
+// section 8 rule: naming requires the player to have actually turned toward the creature.
+export function updateHud(world, nearestUndiscovered, sensed) {
   q('clock').textContent = clockString(world.dayNight);
   q('weather-label').textContent = world.weather.state.toUpperCase();
 
@@ -18,6 +22,14 @@ export function updateHud(world, nearestUndiscovered) {
   const prompt = q('prompt');
   if (nearestUndiscovered) prompt.classList.remove('hidden');
   else prompt.classList.add('hidden');
+
+  const senseEl = q('sense-indicator');
+  if (!nearestUndiscovered && sensed) {
+    senseEl.classList.remove('hidden');
+    q('sense-arrow').style.transform = `rotate(${sensed.angleDeg}deg)`;
+  } else {
+    senseEl.classList.add('hidden');
+  }
 }
 
 let discoveryTimer = null;

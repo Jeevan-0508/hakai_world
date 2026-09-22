@@ -6,7 +6,7 @@
 // old per-sprite path. State tinting (chase/combat, sleep dim) uses InstancedMesh's
 // built-in per-instance color (native in MeshBasicMaterial since three r152, no shader).
 import * as THREE from 'three';
-import { loadMaskedTexture, getAspect } from './creatureRenderer.js';
+import { loadCreatureTexture, getAspect } from './creatureRenderer.js';
 import { groundShadow } from './textures.js';
 
 const CAPACITY = 8; // population.js caps non-elite species at 6; this leaves headroom
@@ -21,7 +21,7 @@ const _identityQuat = new THREE.Quaternion();
 export function buildSpeciesInstances(scene, speciesKey, def) {
   const geo = new THREE.PlaneGeometry(1, 1);
   const mat = new THREE.MeshBasicMaterial({
-    map: loadMaskedTexture(def.file, null),
+    map: loadCreatureTexture(def.file, def.backgroundMode, null, def.maskCrop, def.chromaKeyTrim),
     transparent: true,
     depthWrite: true,
   });

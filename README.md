@@ -1,13 +1,20 @@
+<p align="center"><img src="assets/jk-brand-banner.png" alt="Jeevan Siddhabhaktula: Risk. Governance. AI." width="280"></p>
+
+<div align="center">
+
 # HAKAI // WORLD
 
-*The universe behind the protocol.*
+**The universe behind the protocol.**
+A 2.5D explorable living world built around the HAKAI PROTOCOL universe.
 
-A 2.5D explorable living world built around the existing **HAKAI PROTOCOL** universe —
-its creatures, bosses, and dark-fantasy visual identity — reused as real world entities
+[![Play Live](https://img.shields.io/badge/Play%20Live-jeevan--0508.github.io-38bdf8?style=for-the-badge)](https://jeevan-0508.github.io/hakai_world/)
+[![Tests](https://img.shields.io/badge/Tests-135%2F137_passing-eab308?style=for-the-badge)](tests/run.js)
+[![Stack](https://img.shields.io/badge/Stack-Three.js%20%7C%20WebGPU%20%7C%20Zero%20Deps-818cf8?style=for-the-badge)](#architecture)
+
+</div>
+
+Its creatures, bosses, and dark-fantasy visual identity are reused as real world entities
 instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk into it.
-
-**Play live:** [jeevan-0508.github.io/hakai_world](https://jeevan-0508.github.io/hakai_world/)
-
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
 ## What this is (Phase 8 of an 8-phase build, complete)
@@ -101,14 +108,52 @@ Added in Phase 8:
 
 ## Architecture
 
-Strict simulation/render separation (spec section 26):
+Strict simulation/render separation (spec section 26): `src/render/` reads sim state and never
+mutates it.
 
-```
-src/sim/      world state, creature FSM, day-night, weather, events — no THREE imports
-src/render/   terrain, sky, lights, particles, creature billboards, ancient structure,
-              camera rigs, HUD, cinematic — reads sim state, never mutates it
-src/audio/    Web Audio synthesis
-src/main.js   the only place that ticks sim then renders
+```mermaid
+flowchart TD
+    subgraph MAIN["src/main.js"]
+        LOOP["the only place that ticks sim then renders"]
+    end
+
+    subgraph SIM["src/sim/  (no THREE imports)"]
+        W["world.js
+createWorld / tickWorld"]
+        C["creature.js
+IDLE -> WANDER -> OBSERVE -> INVESTIGATE
+-> CHASE/FLEE -> COMBAT -> RETREAT -> RECOVER"]
+        DN["dayNight.js · weather.js · events.js"]
+        ECO["ecosystem.js · population.js
+resources.js · carcasses.js"]
+        RNG["rng.js"]
+        WK["worker.js
+optional Web Worker offload, Phase 6"]
+    end
+
+    subgraph RENDER["src/render/  (reads sim state only)"]
+        T["terrain.js · sky.js · lights.js · particles.js"]
+        CR["creatureRenderer.js / creatureInstancing.js
+billboards + GPU instancing"]
+        ST["structure.js · territory.js · textures.js"]
+        CAM["camera.js · cinematic.js · hud.js"]
+    end
+
+    subgraph AUDIO["src/audio/"]
+        A["audio.js
+Web Audio synthesis"]
+    end
+
+    LOOP --> W --> C
+    W --> DN
+    W --> ECO
+    C --> RNG
+    W -.optional offload.-> WK
+    LOOP --> T
+    LOOP --> CR
+    LOOP --> ST
+    LOOP --> CAM
+    LOOP --> A
 ```
 
 ## Controls
