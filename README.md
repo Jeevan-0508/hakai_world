@@ -17,7 +17,7 @@ Its creatures, bosses, and dark-fantasy visual identity are reused as real world
 instead of habit-tracker menu art. Not a dashboard, not a menu screen: you walk into it.
 No build step, no npm install — plain ES modules, Three.js loaded from a CDN import map.
 
-## What this is (Phase 8 of an 8-phase build, complete)
+## What this is (Phase 8 of an 8-phase build; spec closed out, 2 known test failures)
 
 HAKAI PROTOCOL's existing assets are AI-generated 2D PNGs (some transparent cutouts, some
 full illustrations) — no 3D models, no sprite sheets, no animation frames. So this project
@@ -162,6 +162,17 @@ Web Audio synthesis"]
 `P` photo mode · `F3` debug · `M` mute
 
 ## Verification note
+
+**The 2 failing tests are real, not environment-specific.** Both are in the `carcasses`
+group (`tests/run.js`) and trace to the same cause: the per-tick "global transitions" block
+in `src/sim/creature.js` re-checks player proximity every frame and will override *any*
+non-`SLEEP`/`MIGRATE` state into `INVESTIGATE`/`OBSERVE`/`FLEE` when the player is within
+perception range -- `SCAVENGE` (and likely `GATHER`) are not exempted the way `SLEEP` and
+`MIGRATE` are. In the test, the predator spawns within its own perception range of the
+default player position, so it drops the carcass target before it ever gains energy from
+it. This is a genuine gap in the state machine, not a Node/browser discrepancy -- left
+unfixed in this pass since it's a gameplay-balance change (deciding which states should be
+scavenging-priority vs. threat-priority) rather than a docs fix, and out of scope here.
 
 Phases 6-8 (Web Worker sim, GPU instancing, WebGPU render path) shipped without a stable
 full-screen browser session available while building them: verified instead by bundling
